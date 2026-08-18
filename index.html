@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waves Car Wash — Queue Display</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:  #0879bd;
+  --brandl: #3aa3e3;
+  --black:  #0d0d0d;
+  --white:  #ffffff;
+  --bg:     #2DA2D8;
+  --card:   #050e1a;
+  --off:    rgba(255,255,255,0.65);
+  --line:   rgba(8,121,189,0.25);
+  --f:      'Montserrat', sans-serif;
+  --fs:     22px;
+}
+html,body{
+  height:100%;width:100%;overflow:hidden;
+  font-family:var(--f);font-size:var(--fs);
+  background:var(--bg);color:var(--white);
+}
+
+.bg{
+  position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse 130% 45% at 50% -5%, rgba(8,121,189,0.22) 0%, transparent 60%),
+    linear-gradient(180deg,#2DA2D8 0%,#2496c8 100%);
+}
+
+.bubbles{position:fixed;inset:0;z-index:1;pointer-events:none;}
+.bubble{
+  position:absolute;border-radius:50%;
+  background:radial-gradient(circle at 33% 33%,rgba(8,121,189,0.18),rgba(58,163,227,0.02));
+  border:1px solid rgba(8,121,189,0.2);
+  animation:rise linear infinite;
+}
+@keyframes rise{0%{transform:translateY(0) scale(1);opacity:.5}100%{transform:translateY(-108vh) scale(1.25);opacity:0}}
+
+.waves{position:fixed;bottom:0;left:0;right:0;z-index:1;height:70px;overflow:hidden;pointer-events:none;}
+.wv{position:absolute;bottom:0;width:200%;height:100%;background-repeat:repeat-x;}
+.wv1{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 120'%3E%3Cpath fill='rgba(8,121,189,0.1)' d='M0,60 C360,120 720,0 1080,60 C1260,90 1350,60 1440,60 L1440,120 L0,120 Z'/%3E%3C/svg%3E");background-size:50% 100%;animation:wm 10s linear infinite;}
+.wv2{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 120'%3E%3Cpath fill='rgba(58,163,227,0.07)' d='M0,80 C240,20 480,100 720,60 C960,20 1200,100 1440,80 L1440,120 L0,120 Z'/%3E%3C/svg%3E");background-size:50% 100%;animation:wm 14s linear infinite reverse;bottom:-8px;}
+.wv3{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 120'%3E%3Cpath fill='rgba(3,17,31,0.7)' d='M0,40 C480,100 960,0 1440,40 L1440,120 L0,120 Z'/%3E%3C/svg%3E");background-size:50% 100%;animation:wm 7s linear infinite;bottom:-16px;}
+@keyframes wm{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+.jeep-sticker{
+  position:fixed;bottom:18px;right:18px;z-index:2;
+  width:140px;opacity:0.13;
+  pointer-events:none;
+  transform:rotate(-8deg);
+}
+.jeep-sticker.left{
+  left:18px;right:auto;
+  transform:rotate(8deg) scaleX(-1);
+}
+
+.screen{
+  position:relative;z-index:3;
+  height:100vh;width:100vw;
+  display:flex;flex-direction:column;
+}
+
+/* ── HEADER ── */
+header{
+  padding:10px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(3,11,22,0.9);backdrop-filter:blur(20px);
+  border-bottom:3px solid var(--brand);
+  flex-shrink:0;
+  position:relative;
+}
+.logo{height:38px;width:auto;object-fit:contain;}
+.clock{font-size:var(--fs);font-weight:800;letter-spacing:3px;font-variant-numeric:tabular-nums;}
+
+/* ── HEADLINE ── */
+.ty{
+  text-align:center;
+  padding:12px 16px 10px;
+  flex-shrink:0;
+}
+.ty-eye{font-size:var(--fs);font-weight:700;letter-spacing:5px;text-transform:uppercase;color:var(--brandl);opacity:.85;margin-bottom:3px;display:block;}
+.ty-head{
+  font-size:var(--fs);font-weight:900;line-height:1;letter-spacing:2px;
+  background:linear-gradient(170deg,var(--brandl) 0%,#80caef 38%,var(--white) 58%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.ty-sub{font-size:var(--fs);font-weight:400;color:var(--off);margin-top:4px;letter-spacing:1px;}
+
+/* Bigger headline text on the idle/welcome screen only */
+body.is-idle .ty-eye{font-size:clamp(24px,4vw,48px);margin-bottom:6px;}
+body.is-idle .ty-sub{font-size:clamp(30px,6vw,72px);font-weight:600;color:var(--white);margin-top:8px;}
+
+/* ── DISPLAY WRAPPER ── */
+#display{
+  flex:1;
+  min-height:0;
+  display:flex;
+  align-items:stretch;
+  justify-content:center;
+  padding:0 16px 16px;
+}
+
+/* ── CAR CARD ── */
+.car-card{
+  width:100%;max-width:540px;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  border:3px solid var(--black);
+  box-shadow:0 0 0 1px var(--pkg-color,var(--brand)),0 20px 60px rgba(0,0,0,0.7);
+  background:var(--card);
+  position:relative;
+}
+.car-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--pkg-color,var(--brand)),color-mix(in srgb,var(--pkg-color,var(--brandl)) 60%,white),var(--pkg-color,var(--brand)));
+  z-index:3;
+}
+
+.img-panel{
+  flex:0 0 44%;
+  position:relative;
+  background:#020810;
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+.img-panel::before{
+  content:'';position:absolute;inset:0;z-index:1;
+  background:linear-gradient(180deg,transparent 60%,rgba(5,14,26,0.8) 100%);
+}
+.veh-img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;opacity:.93;}
+.no-img{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:10px;}
+.no-img-jeep{width:110px;opacity:0.35;}
+.no-img p{font-size:var(--fs);letter-spacing:4px;text-transform:uppercase;color:rgba(8,121,189,0.3);}
+
+.info-panel{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  border-top:1px solid var(--line);
+  min-height:0;
+}
+.info-block{
+  flex:0 0 auto;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:18px 26px;
+  border-bottom:1px solid var(--line);
+}
+.info-block:last-child{border-bottom:none;}
+
+.flbl{
+  font-size:var(--fs);font-weight:700;letter-spacing:5px;
+  text-transform:uppercase;color:var(--brandl);opacity:.7;
+  margin-bottom:10px;display:block;
+}
+
+.plate{
+  display:inline-flex;align-items:center;gap:10px;
+  align-self:flex-start;
+  background:linear-gradient(175deg,#f6f5ef 0%,#deded4 100%);
+  border:3px solid var(--black);border-radius:7px;padding:12px 22px;position:relative;
+  box-shadow:4px 4px 0 rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.9);
+}
+.plate::after{content:'';position:absolute;top:3px;left:3px;right:3px;height:4px;background:linear-gradient(90deg,var(--brand),var(--brandl),var(--brand));border-radius:2px 2px 0 0;}
+.pbolt{width:12px;height:12px;border-radius:50%;flex-shrink:0;background:radial-gradient(circle at 35% 35%,#ccc,#888);border:1.5px solid #555;box-shadow:inset 0 1px 2px rgba(0,0,0,0.4);margin-top:3px;}
+.pnum{font-size:var(--fs);font-weight:900;color:var(--black);letter-spacing:8px;line-height:1;text-shadow:0 1px 0 rgba(255,255,255,0.55);margin-top:3px;}
+
+.pkg-row{display:flex;align-items:center;gap:16px;}
+.pkg-icon-duo{
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+}
+.pkg-icon-duo img{
+  height:52px;width:52px;object-fit:contain;
+  mix-blend-mode:screen;
+}
+.pkg-name{font-size:var(--fs);font-weight:800;line-height:1.2;color:var(--white);}
+
+/* ── IDLE ── */
+.idle{
+  width:100%;max-width:540px;
+  text-align:center;padding:50px 28px;
+  background:var(--card);border:3px solid var(--black);
+  box-shadow:0 0 0 1px rgba(8,121,189,0.2);
+  align-self:center;
+}
+.idle-jeep{width:160px;opacity:0.25;margin:0 auto 20px;display:block;}
+.idle h2{
+  font-size:var(--fs);font-weight:900;letter-spacing:4px;
+  text-transform:uppercase;color:#ffffff;
+  text-shadow:0 2px 16px rgba(0,0,0,0.6);
+}
+.idle p{font-size:var(--fs);color:rgba(255,255,255,0.7);margin-top:10px;letter-spacing:3px;text-transform:uppercase;}
+
+/* FORCED ROTATION: for a TV mounted vertically whose browser still renders
+   landscape. Driven by FORCE_PORTRAIT in the script — rotates 90deg and
+   swaps width/height so it fills the panel. */
+body.force-portrait{
+  position:absolute;
+  width:100vh;     /* page width  = physical screen height */
+  height:100vw;    /* page height = physical screen width  */
+  transform-origin:top left;
+  overflow:hidden;
+}
+body.force-portrait.rot-cw{  top:0;    left:100%; transform:rotate(90deg);  }
+body.force-portrait.rot-ccw{ top:100%; left:0;    transform:rotate(-90deg); }
+
+/* PORTRAIT MODE (9:16 displays): scale card to fill. Driven by body.is-portrait
+   (set in script), which fires for real portrait displays AND forced
+   portrait, since a rotated TV reports itself landscape. */
+body.is-portrait header{
+  font-size:18px;       /* override --fs inheritance for header only */
+  padding:10px 16px;
+  gap:8px;
+}
+body.is-portrait .logo{ height:42px; }
+body.is-portrait .clock{ font-size:18px; letter-spacing:2px; }
+
+/* Headline: small + tight so it doesn't dominate */
+body.is-portrait .ty{ padding:14px 20px 10px; }
+body.is-portrait .ty-eye{ font-size:14px; letter-spacing:5px; margin-bottom:4px; }
+body.is-portrait .ty-head{ font-size:42px; letter-spacing:3px; }
+body.is-portrait .ty-sub{ font-size:16px; margin-top:6px; letter-spacing:1px; }
+
+/* Card area gets the rest of the screen; align top so card can sit above the waves */
+body.is-portrait #display{ padding:0 20px 24px; align-items:flex-start; }
+
+body.is-portrait .car-card{
+  max-width:none;
+  width:100%;
+  height:calc(100% - 90px);   /* stop short of the bottom: room for waves + jeep stickers */
+  border-width:4px;
+  font-size:26px;       /* base size inside card only */
+}
+body.is-portrait .car-card::before{ height:6px; }
+
+body.is-portrait .img-panel{ flex:1 1 auto; height:auto; min-height:140px; }   /* image absorbs spare height so the info panel never gets cut off */
+body.is-portrait .no-img-jeep{ width:180px; }
+
+body.is-portrait .info-panel{ flex:none; }
+body.is-portrait .info-block{ padding:16px 36px; }
+
+body.is-portrait .flbl{
+  font-size:0.7em;
+  letter-spacing:7px;
+  margin-bottom:16px;
+}
+
+body.is-portrait .plate{
+  padding:18px 32px;
+  border-width:4px;
+  border-radius:10px;
+  gap:14px;
+  box-shadow:5px 5px 0 rgba(0,0,0,0.55),inset 0 2px 0 rgba(255,255,255,0.9);
+}
+body.is-portrait .plate::after{ top:4px; left:4px; right:4px; height:5px; }
+body.is-portrait .pbolt{ width:18px; height:18px; border-width:2px; margin-top:4px; }
+body.is-portrait .pnum{
+  font-size:1.6em;
+  letter-spacing:12px;
+}
+
+body.is-portrait .pkg-row{ gap:22px; }
+body.is-portrait .pkg-icon-duo{ gap:10px; }
+body.is-portrait .pkg-icon-duo img{ height:82px; width:82px; }
+body.is-portrait .pkg-name{ font-size:1.25em; }
+
+/* ── IDLE in portrait ── */
+body.is-portrait .idle{
+  max-width:none;
+  width:100%;
+  height:auto;
+  min-height:55vh;
+  align-self:flex-end;
+  margin-bottom:200px;
+  padding:60px 40px;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  border-width:4px;
+  font-size:26px;
+}
+body.is-portrait .idle-jeep{ width:260px; margin-bottom:32px; }
+body.is-portrait .idle h2{ font-size:1.8em; letter-spacing:6px; }
+body.is-portrait .idle p{ font-size:1em; letter-spacing:4px; margin-top:16px; }
+
+body.is-portrait .jeep-sticker{ width:100px; bottom:18px; right:24px; }
+body.is-portrait .jeep-sticker.left{ left:24px; right:auto; }
+body.is-portrait .waves{ height:90px; }
+
+/* FORCED-ROTATION FIXES: viewport is still landscape, so vh/vw point the
+   wrong way — re-anchor to the rotated box. Must come after .is-portrait
+   rules to win on equal specificity. */
+body.force-portrait .screen{ width:100%; height:100%; }
+body.force-portrait header{                                  /* blur breaks inside a transform on TV browsers */
+  backdrop-filter:none;
+  background:rgba(3,11,22,0.96);
+}
+body.force-portrait .idle{ min-height:55vw; }
+body.force-portrait.is-idle .ty-eye{ font-size:clamp(24px,4vh,48px); }
+body.force-portrait.is-idle .ty-sub{ font-size:clamp(30px,6vh,72px); }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="bubbles" id="bubbles"></div>
+<div class="waves"><div class="wv wv1"></div><div class="wv wv2"></div><div class="wv wv3"></div></div>
+
+<img class="jeep-sticker" src="JeepStickerFINAL.png" alt="">
+<img class="jeep-sticker left" src="JeepStickerFINAL.png" alt="">
+
+<div class="screen">
+  <header>
+    <img class="logo" src="ColorTransparent.png" alt="Waves Car Wash">
+    <div class="clock" id="clock">—</div>
+  </header>
+
+  <div class="ty">
+    <span class="ty-eye" id="eyebrow">Now Entering</span>
+    <div class="ty-head" id="headline">THANK YOU</div>
+    <div class="ty-sub" id="subline">Pull forward and enjoy your wash</div>
+  </div>
+
+  <div id="display"></div>
+</div>
+
+<script>
+const CLEANTRAK_URL = "http://192.168.26.254:5000/api/washQueue/cars?tunnel=93aecdfe-f48d-425a-ad2d-393bd36643e3";
+const CLEANTRAK_KEY = "991c-e-Jg_3mbzRVf0yFxa77tzUBVU_4zzfiEnIkQ0c";
+
+// ── DISPLAY ORIENTATION ──────────────────────────────────────
+// Set FORCE_PORTRAIT = true ONLY when the TV is physically mounted
+// vertically and the browser keeps rendering the page in landscape
+// (so the content shows sideways). On a normal landscape monitor,
+// leave this false and the page behaves exactly as before.
+//
+// ROTATE_DIR is 'cw' or 'ccw'. Pick whichever turns the picture the
+// right way up. If it comes out upside down, switch to the other one.
+const FORCE_PORTRAIT = true;
+const ROTATE_DIR     = 'ccw';  // 'cw' or 'ccw'
+
+let currentCarId = null;
+let idleTimer    = null;
+
+// Decide portrait vs landscape and rotate if forced.
+// is-portrait drives all the big-screen styling. force-portrait + rot-*
+// physically rotate the page for a vertically mounted TV.
+function applyOrientation(){
+  const realPortrait = window.matchMedia('(orientation: portrait)').matches;
+  const portrait = FORCE_PORTRAIT || realPortrait;
+
+  document.body.classList.toggle('is-portrait', portrait);
+  document.body.classList.toggle('force-portrait', FORCE_PORTRAIT);
+  document.body.classList.toggle('rot-cw',  FORCE_PORTRAIT && ROTATE_DIR === 'cw');
+  document.body.classList.toggle('rot-ccw', FORCE_PORTRAIT && ROTATE_DIR === 'ccw');
+}
+
+// ── bubbles
+(()=>{
+  const c=document.getElementById('bubbles');
+  for(let i=0;i<14;i++){
+    const b=document.createElement('div');b.className='bubble';
+    const s=5+Math.random()*20;
+    b.style.cssText=`width:${s}px;height:${s}px;left:${Math.random()*100}%;bottom:${-5-Math.random()*8}%;animation-duration:${9+Math.random()*16}s;animation-delay:${Math.random()*13}s`;
+    c.appendChild(b);
+  }
+})();
+
+// ── clock
+(function tick(){
+  document.getElementById('clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  setTimeout(tick,1000);
+})();
+
+function pkgColor(n){
+  n=(n||'').toLowerCase();
+  if(n.includes('ultimate')) return '#6DC84B';
+  if(n.includes('extreme'))  return '#4BC8E8';
+  if(n.includes('basic'))    return '#F5A623';
+  return '#4BC8E8';
+}
+
+function pkgIconHtml(n){
+  n=(n||'').toLowerCase();
+  return n.includes('ultimate')
+    ? `<div class="pkg-icon-duo"><img src="Graphene.png" alt="Graphene Shield" onerror="this.closest('.pkg-icon-duo').remove()"></div>`
+    : '';
+}
+
+function isGhostWash(n){
+  n=(n||'').toLowerCase().trim();
+  return n==='' || n.includes('ghost');
+}
+
+// Capitalize each word: "clivens joseph" -> "Clivens Joseph".
+// Handles hyphens and apostrophes too: "o'brien" -> "O'Brien", "smith-jones" -> "Smith-Jones".
+function capitalizeName(str){
+  return (str||'')
+    .toLowerCase()
+    .replace(/(^|[\s\-'])([a-z])/g, function(_, sep, ch){ return sep + ch.toUpperCase(); });
+}
+
+// CleanTrak sometimes packs the full name into customer_first_name
+// with customer_last_name null. Split on whitespace in that case:
+// first token becomes the first name, everything after is the last name.
+// If both fields are already filled, leave them as-is. Names are capitalized.
+function splitName(first, last){
+  first = (first || '').trim();
+  last  = (last  || '').trim();
+
+  if(first && !last){
+    var parts = first.split(/\s+/);
+    if(parts.length > 1){
+      first = parts.shift();
+      last  = parts.join(' ');
+    }
+  }
+  return { first: capitalizeName(first), last: capitalizeName(last) };
+}
+
+// Scale the plate number down so it always fits the card, regardless of plate length
+function fitPlate(){
+  const plate=document.querySelector('.plate');
+  const pnum=document.querySelector('.pnum');
+  if(!plate||!pnum) return;
+  const block=plate.parentElement;
+  // reset any prior scaling so we measure the true CSS size
+  pnum.style.fontSize='';
+  pnum.style.letterSpacing='';
+  requestAnimationFrame(()=>{
+    const cs=getComputedStyle(pnum);
+    const baseSize=parseFloat(cs.fontSize);
+    const baseSpace=parseFloat(cs.letterSpacing)||0;
+    const bcs=getComputedStyle(block);
+    const avail=block.clientWidth-parseFloat(bcs.paddingLeft)-parseFloat(bcs.paddingRight);
+    if(plate.offsetWidth>avail){
+      const ratio=avail/plate.offsetWidth;
+      pnum.style.fontSize=(baseSize*ratio)+'px';
+      pnum.style.letterSpacing=(baseSpace*ratio)+'px';
+    }
+  });
+}
+
+function buildImgPanel(imgUrl){
+  const panel=document.createElement('div');panel.className='img-panel';
+  if(imgUrl){
+    const img=document.createElement('img');img.className='veh-img';img.alt='Vehicle';
+    img.addEventListener('error',function(){
+      this.remove();
+      panel.innerHTML='<div class="no-img"><img class="no-img-jeep" src="JeepStickerFINAL.png" alt=""><p>No Image</p></div>';
+    });
+    img.src=imgUrl;panel.appendChild(img);
+  } else {
+    panel.innerHTML='<div class="no-img"><img class="no-img-jeep" src="JeepStickerFINAL.png" alt=""><p>No Image</p></div>';
+  }
+  return panel;
+}
+
+function resetIdleTimer(){
+  clearTimeout(idleTimer);
+  idleTimer=setTimeout(()=>{
+    currentCarId=null;
+    renderIdle();
+  }, 7000);
+}
+
+function renderCar(car){
+  currentCarId=car.invoice_id;
+  document.body.classList.remove('is-idle');
+  const plate=(car.license_plate||'?').toUpperCase();
+  const pkg=car.wash_package_name||'';
+  const imgUrl=(car.image_urls||[])[0]||null;
+  const color=pkgColor(pkg);
+  const name=splitName(car.customer_first_name,car.customer_last_name);
+  const customerName=name.first||'Guest';
+
+  document.getElementById('eyebrow').textContent='Now Entering';
+  document.getElementById('headline').textContent='THANK YOU';
+  document.getElementById('subline').textContent='Pull forward and enjoy your wash';
+
+  // Ultimate gets the Graphene badge; Extreme/Basic get no badge and no
+  // reserved space, so the package name sits flush left. Ghost washes
+  // (blank/"ghost" package name) show no package block at all.
+  const pkgBlock=isGhostWash(pkg) ? '' : `
+    <div class="info-block">
+      <span class="flbl">Wash Package</span>
+      <div class="pkg-row">${pkgIconHtml(pkg)}<div class="pkg-name" style="color:${color}">${pkg}</div></div>
+    </div>`;
+
+  const card=document.createElement('div');
+  card.className='car-card';
+  card.style.setProperty('--pkg-color',color);
+  card.dataset.invoiceId=car.invoice_id;
+  card.innerHTML=`
+    <div class="info-panel">
+      <div class="info-block">
+        <span class="flbl">License Plate</span>
+        <div class="plate"><div class="pbolt"></div><div class="pnum">${plate}</div><div class="pbolt"></div></div>
+      </div>
+      <div class="info-block">
+        <span class="flbl">Customer</span>
+        <div class="pkg-name">${customerName}</div>
+      </div>
+      ${pkgBlock}
+    </div>`;
+  card.prepend(buildImgPanel(imgUrl));
+
+  const display=document.getElementById('display');
+  display.innerHTML='';
+  display.appendChild(card);
+  fitPlate();
+}
+
+function renderIdle(){
+  currentCarId=null;
+  document.body.classList.add('is-idle');
+  document.getElementById('eyebrow').textContent='Welcome';
+  document.getElementById('headline').textContent='';
+  document.getElementById('subline').textContent='Drive up to begin your wash';
+  document.getElementById('display').innerHTML=`
+    <div class="idle">
+      <img class="idle-jeep" src="JeepStickerFINAL.png" alt="">
+      <h2>Welcome</h2>
+      <p>Waiting for next car</p>
+    </div>`;
+}
+
+async function poll(){
+  try{
+    const r=await fetch(CLEANTRAK_URL,{headers:{accept:"application/json",authorization:`Bearer ${CLEANTRAK_KEY}`}});
+    if(!r.ok) throw 0;
+    const allCars=(await r.json()).cars||[];
+
+    // Only show cars that are ENTERING the tunnel
+    const sorted=allCars
+      .filter(c=>c.state==='ENTERING')
+      .sort((a,b)=>new Date(b.wash_edit_time)-new Date(a.wash_edit_time));
+
+    if(sorted.length===0) return; // nothing to show — let idle timer expire
+
+    const candidate=sorted[0];
+    const invoiceId=candidate.invoice_id;
+
+    // Already showing this car — just reset the hold timer
+    if(invoiceId===currentCarId){
+      resetIdleTimer();
+      return;
+    }
+
+    // New ENTERING car 
+    renderCar(candidate);
+    resetIdleTimer();
+
+  }catch(e){
+    // silent — keep current display, idle timer will fire naturally
+  }
+}
+
+// Set orientation first so the very first render is laid out correctly
+applyOrientation();
+
+// Start idle immediately, poll will override when a car is found
+renderIdle();
+poll();
+setInterval(poll,3000);
+
+window.addEventListener('resize',()=>{applyOrientation();fitPlate();});
+window.addEventListener('orientationchange',()=>{applyOrientation();fitPlate();});
+</script>
+</body>
+</html>
